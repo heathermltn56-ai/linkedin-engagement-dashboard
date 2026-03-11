@@ -1,0 +1,7 @@
+*.csv
+*.gs
+CLAUDE.md
+.claude/
+.DS_Store
+open-dashboard.sh
+template/

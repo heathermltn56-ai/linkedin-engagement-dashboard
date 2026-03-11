@@ -1,0 +1,1600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Loro Flow — LinkedIn Engagement Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700;900&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<style>
+  :root {
+    --bg: #0a0520;
+    --card: #150d35;
+    --border: #2e008b40;
+    --border-solid: #2e008b;
+    --text: #f0edf7;
+    --muted: #9b8fbf;
+    --accent: #2e008b;
+    --accent-light: #4a1ab0;
+    --orange: #ff5c00;
+    --orange-light: #ff7a33;
+    --green: #22c55e;
+    --red: #ef4444;
+    --blue: #3b82f6;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Lato', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 24px;
+    min-height: 100vh;
+    background-image:
+      radial-gradient(ellipse at 20% 0%, rgba(46,0,139,0.3) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 100%, rgba(255,92,0,0.1) 0%, transparent 50%);
+  }
+  .header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 4px;
+  }
+  .header img {
+    height: 48px;
+  }
+  h1 {
+    font-size: 28px;
+    font-weight: 900;
+    letter-spacing: -0.5px;
+    background: linear-gradient(135deg, #ffffff 0%, #ff5c00 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .subtitle {
+    color: var(--muted);
+    font-size: 14px;
+    margin-bottom: 32px;
+    font-weight: 300;
+  }
+  .config-bar {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .config-bar label {
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .config-bar input {
+    flex: 1;
+    min-width: 300px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-family: 'Lato', sans-serif;
+  }
+  .config-bar input:focus {
+    outline: none;
+    border-color: var(--orange);
+    box-shadow: 0 0 0 2px rgba(255,92,0,0.2);
+  }
+  .btn-primary {
+    background: var(--orange);
+    color: white;
+    border: none;
+    padding: 8px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 700;
+    font-family: 'Lato', sans-serif;
+    transition: all 0.2s;
+  }
+  .btn-primary:hover { background: var(--orange-light); transform: translateY(-1px); }
+  .btn-secondary {
+    background: var(--accent);
+    color: white;
+    border: 1px solid var(--border-solid);
+    padding: 8px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 700;
+    font-family: 'Lato', sans-serif;
+    transition: all 0.2s;
+  }
+  .btn-secondary:hover { background: var(--accent-light); }
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .stat-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    transition: border-color 0.2s;
+  }
+  .stat-card:hover { border-color: var(--orange); }
+  .stat-card .label {
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+    font-weight: 700;
+  }
+  .stat-card .value {
+    font-size: 32px;
+    font-weight: 900;
+    color: #ffffff;
+  }
+  .stat-card .sub {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  @media (max-width: 900px) {
+    .grid-2 { grid-template-columns: 1fr; }
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+  }
+  .card h2 {
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 16px;
+    letter-spacing: 0.3px;
+    color: #ffffff;
+  }
+  .card canvas {
+    max-height: 300px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  th {
+    text-align: left;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    color: var(--orange);
+    font-weight: 700;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,92,0,0.04); }
+  .badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 100px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+  }
+  .badge-hot { background: rgba(255,92,0,0.15); color: var(--orange); }
+  .badge-warm { background: rgba(255,92,0,0.08); color: var(--orange-light); }
+  .badge-cool { background: rgba(46,0,139,0.3); color: #b49cdb; }
+  .engagement-bar {
+    height: 6px;
+    border-radius: 3px;
+    background: rgba(46,0,139,0.3);
+    position: relative;
+    overflow: hidden;
+  }
+  .engagement-bar .fill {
+    height: 100%;
+    border-radius: 3px;
+    background: linear-gradient(90deg, var(--orange), var(--orange-light));
+  }
+  a { color: var(--orange); text-decoration: none; font-weight: 700; }
+  a:hover { text-decoration: underline; color: var(--orange-light); }
+  .tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    background: rgba(46,0,139,0.3);
+    color: #c4b3e8;
+    margin: 1px;
+  }
+  .loading {
+    text-align: center;
+    padding: 80px 20px;
+    color: var(--muted);
+  }
+  .loading .spinner {
+    width: 40px; height: 40px;
+    border: 3px solid var(--border);
+    border-top-color: var(--orange);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 16px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .search-box {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-family: 'Lato', sans-serif;
+    width: 100%;
+    margin-bottom: 12px;
+  }
+  .search-box:focus {
+    outline: none;
+    border-color: var(--orange);
+    box-shadow: 0 0 0 2px rgba(255,92,0,0.2);
+  }
+  .profile-stat {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+  .profile-stat .delta {
+    font-size: 13px;
+    font-weight: 700;
+  }
+  .delta.up { color: var(--green); }
+  .delta.down { color: var(--red); }
+  .divider {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--border-solid), var(--orange), var(--border-solid), transparent);
+    margin: 32px 0;
+  }
+  .section-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--orange);
+    font-weight: 700;
+    margin-bottom: 16px;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <img src="loro-flow-logo.png" alt="Loro Flow" onerror="this.style.display='none'" />
+  <h1>LinkedIn Engagement Dashboard</h1>
+</div>
+<p class="subtitle">Tracking who's engaging, how often, and where they're from</p>
+
+<div class="config-bar">
+  <button class="btn-primary" onclick="loadData()">Refresh Data</button>
+  <button class="btn-secondary" onclick="loadSampleData()">Load Sample</button>
+  <span style="color:var(--muted);font-size:12px;">Data loads automatically from Google Sheets</span>
+</div>
+
+<div id="loading" class="loading" style="display:none;">
+  <div class="spinner"></div>
+  <p>Loading engagement data...</p>
+</div>
+
+<div id="dashboard" style="display:none;">
+
+  <!-- Top Stats -->
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="label">Total Engagements</div>
+      <div class="value" id="totalEngagements">—</div>
+      <div class="sub" id="totalEngagementsSub"></div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Unique People</div>
+      <div class="value" id="uniquePeople">—</div>
+      <div class="sub" id="uniquePeopleSub"></div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Repeat Engagers</div>
+      <div class="value" id="repeatEngagers">—</div>
+      <div class="sub" id="repeatEngagersSub"></div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Posts Tracked</div>
+      <div class="value" id="postsTracked">—</div>
+    </div>
+    <div class="stat-card" id="followersCard" style="display:none;">
+      <div class="label">Followers</div>
+      <div class="value profile-stat">
+        <span id="followerCount">—</span>
+        <span id="followerDelta" class="delta"></span>
+      </div>
+    </div>
+    <div class="stat-card" id="connectionsCard" style="display:none;">
+      <div class="label">Connections</div>
+      <div class="value profile-stat">
+        <span id="connectionCount">—</span>
+        <span id="connectionDelta" class="delta"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Charts Row -->
+  <div class="grid-2">
+    <div class="card">
+      <h2>Engagement by Type</h2>
+      <canvas id="typeChart"></canvas>
+    </div>
+    <div class="card">
+      <h2>Country Breakdown</h2>
+      <canvas id="countryChart"></canvas>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <h2>Engagements per Post</h2>
+      <canvas id="postChart"></canvas>
+    </div>
+    <div class="card">
+      <h2>Engagement Warmth</h2>
+      <p style="color: var(--muted); font-size: 12px; margin-bottom: 12px; font-weight: 300;">
+        How many people are in each warmth tier based on posts engaged with
+      </p>
+      <canvas id="warmthChart"></canvas>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+  <div class="section-label">Outreach Intelligence</div>
+
+  <!-- Top 10 Outreach -->
+  <div class="card" style="margin-bottom: 24px;">
+    <h2>Top 10 — Who to Reach Out To</h2>
+    <p style="color: var(--muted); font-size: 12px; margin-bottom: 12px; font-weight: 300;">
+      Scored by: engagement frequency, comments (3x weight), reposts (5x weight), multi-post bonus
+    </p>
+    <table id="top10Table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Name</th>
+          <th>Position</th>
+          <th>Engagements</th>
+          <th>Types</th>
+          <th>Score</th>
+          <th>Warmth</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <!-- High-Intent Comments -->
+  <div class="card" style="margin-bottom: 24px;">
+    <h2>High-Intent Comments</h2>
+    <p style="color: var(--muted); font-size: 12px; margin-bottom: 12px; font-weight: 300;">
+      Comments that signal interest, need, or buying intent — sorted by intent strength
+    </p>
+    <div style="max-height: 400px; overflow-y: auto;">
+      <table id="intentTable">
+        <thead>
+          <tr>
+            <th>Intent</th>
+            <th>Name</th>
+            <th>Comment</th>
+            <th>Post</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+  <div class="section-label">Deep Dive</div>
+
+  <!-- All Engagers -->
+  <div class="grid-2">
+    <div class="card">
+      <h2>All Engagers</h2>
+      <input type="text" class="search-box" id="engagerSearch" placeholder="Search by name, position, or country..." oninput="filterEngagers()" />
+      <div style="max-height: 500px; overflow-y: auto;">
+        <table id="engagerTable">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Position</th>
+              <th>Engagements</th>
+              <th>Last Type</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Top Posts by Engagement</h2>
+      <div style="max-height: 500px; overflow-y: auto;">
+        <table id="postTable">
+          <thead>
+            <tr>
+              <th>Post</th>
+              <th>Date</th>
+              <th>Topic</th>
+              <th>Total</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+  <div class="section-label">Content Intelligence</div>
+
+  <!-- Best Posting Time + Topic Performance -->
+  <div class="grid-2">
+    <div class="card">
+      <h2>Best Posting Times</h2>
+      <p style="color: var(--muted); font-size: 12px; margin-bottom: 12px; font-weight: 300;">
+        Average engagement by day of week and time slot
+      </p>
+      <canvas id="postingTimeChart"></canvas>
+    </div>
+    <div class="card">
+      <h2>Engagement by Topic</h2>
+      <p style="color: var(--muted); font-size: 12px; margin-bottom: 12px; font-weight: 300;">
+        Which content categories drive the most engagement
+      </p>
+      <canvas id="topicChart"></canvas>
+    </div>
+  </div>
+
+  <!-- Comment Sentiment -->
+  <div class="card" style="margin-bottom: 24px;">
+    <h2>Comment Sentiment</h2>
+    <p style="color: var(--muted); font-size: 12px; margin-bottom: 12px; font-weight: 300;">
+      Tone of comments on your posts — positive, neutral, or negative
+    </p>
+    <div class="grid-2" style="margin-bottom: 0;">
+      <div><canvas id="sentimentChart"></canvas></div>
+      <div id="sentimentBreakdown"></div>
+    </div>
+  </div>
+
+  <!-- Topic Detail Table -->
+  <div class="card" style="margin-bottom: 24px;">
+    <h2>Content Performance by Topic</h2>
+    <p style="color: var(--muted); font-size: 12px; margin-bottom: 12px; font-weight: 300;">
+      Topics ranked by average engagement per post
+    </p>
+    <div style="max-height: 400px; overflow-y: auto;">
+      <table id="topicTable">
+        <thead>
+          <tr>
+            <th>Category</th>
+            <th>Posts</th>
+            <th>Avg Engagement</th>
+            <th>Best Topic</th>
+            <th>Top Tone</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+  <div class="section-label">Growth</div>
+
+  <!-- Profile Tracking -->
+  <div class="card" id="profileSection" style="margin-bottom: 24px; display: none;">
+    <h2>Follower & Connection Growth</h2>
+    <canvas id="profileChart"></canvas>
+  </div>
+
+</div>
+
+<script>
+// Loro Flow brand colors for charts
+const LF = {
+  purple: '#2e008b',
+  purpleLight: '#4a1ab0',
+  purpleMid: '#6b3fd4',
+  orange: '#ff5c00',
+  orangeLight: '#ff7a33',
+  orangeSoft: '#ff9a5c',
+  white: '#ffffff',
+  muted: '#9b8fbf',
+  green: '#22c55e',
+  red: '#ef4444',
+  chartColors: ['#ff5c00', '#2e008b', '#ff7a33', '#6b3fd4', '#ff9a5c', '#4a1ab0', '#22c55e'],
+  chartGrid: 'rgba(46,0,139,0.2)',
+  chartTick: '#9b8fbf'
+};
+
+// Data source URLs (all from same Google Sheet, different tabs)
+const SHEET_BASE = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTs-jmh-VkJQyrxNVO7fiik8v76nVp-f8pA01ix4igc8tDie0pZ3iv84R66WuU1y4s2NiXEjHIpPTiB/pub?single=true&output=csv&gid=';
+const DATA_URLS = {
+  engagement: SHEET_BASE + '1909762971',
+  country:    SHEET_BASE + '1449254457',
+  posts:      SHEET_BASE + '1612836679',
+  profile:    SHEET_BASE + '852627707'
+};
+
+// Global state
+let engagementData = [];
+let profileData = [];
+let countryLookup = {};
+let postLookup = {};
+let allEngagers = [];
+let charts = {};
+
+// ---- DATA LOADING ----
+
+function loadData() {
+  document.getElementById('loading').style.display = 'block';
+  document.getElementById('dashboard').style.display = 'none';
+
+  let loaded = 0;
+  const total = 4;
+  function checkDone() {
+    loaded++;
+    if (loaded >= total) buildDashboard();
+  }
+
+  // 1. Engagement data
+  Papa.parse(DATA_URLS.engagement, {
+    download: true, header: true, skipEmptyLines: true,
+    complete: function(r) { engagementData = r.data; checkDone(); },
+    error: function() { checkDone(); }
+  });
+
+  // 2. Country lookup
+  Papa.parse(DATA_URLS.country, {
+    download: true, header: true, skipEmptyLines: true,
+    complete: function(r) {
+      r.data.forEach(row => {
+        const lurl = row['LinkedIn URL'] || '';
+        if (lurl && row['Country']) {
+          countryLookup[lurl] = {
+            country: row['Country'],
+            location: row['Location'] || ''
+          };
+        }
+      });
+      checkDone();
+    },
+    error: function() { checkDone(); }
+  });
+
+  // 3. Post lookup
+  Papa.parse(DATA_URLS.posts, {
+    download: true, header: true, skipEmptyLines: true,
+    complete: function(r) {
+      r.data.forEach(row => {
+        const url = row['Post URL'] || '';
+        if (url) {
+          postLookup[url] = {
+            date: row['Date'] || '',
+            day: row['Day of Week'] || '',
+            time: row['Time'] || '',
+            topic: row['Topic'] || '',
+            category: row['Category'] || '',
+            tone: row['Tone'] || '',
+            content: row['Content Snippet'] || '',
+            likes: parseInt(row['Likes']) || 0,
+            comments: parseInt(row['Comments']) || 0,
+            reposts: parseInt(row['Reposts']) || 0,
+            engagementRate: row['Engagement Rate'] || ''
+          };
+        }
+      });
+      checkDone();
+    },
+    error: function() { checkDone(); }
+  });
+
+  // 4. Profile tracking
+  Papa.parse(DATA_URLS.profile, {
+    download: true, header: true, skipEmptyLines: true,
+    complete: function(r) { profileData = r.data; checkDone(); },
+    error: function() { checkDone(); }
+  });
+}
+
+function loadSampleData() {
+  engagementData = generateSampleData();
+  profileData = generateSampleProfile();
+  buildDashboard();
+}
+
+// ---- DASHBOARD BUILD ----
+
+function buildDashboard() {
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('dashboard').style.display = 'block';
+
+  const data = engagementData;
+  const normalized = data.map(row => ({
+    date: row['Date Scraped'] || row['date_scraped'] || row['Date'] || '',
+    name: row['Name'] || row['name'] || '',
+    url: row['LinkedIn URL'] || row['linkedin_url'] || row['personal_linkedin_url'] || '',
+    position: row['Position'] || row['position'] || '',
+    type: row['Engagement Type'] || row['engagement_type'] || row['type'] || '',
+    comment: row['Comment Text'] || row['comment_text'] || '',
+    postUrl: row['Post URL'] || row['post_url'] || row['linkedin_post_url'] || '',
+    postId: row['Post ID'] || row['post_id'] || ''
+  })).filter(row => !isClayBootcamp(row));
+
+  const personMap = {};
+  normalized.forEach(row => {
+    const key = row.url || row.name;
+    if (!key) return;
+    if (!personMap[key]) {
+      personMap[key] = {
+        name: row.name,
+        url: row.url,
+        position: row.position,
+        engagements: [],
+        types: new Set(),
+        posts: new Set()
+      };
+    }
+    personMap[key].engagements.push(row);
+    personMap[key].types.add(row.type);
+    personMap[key].posts.add(row.postUrl);
+    if (row.position && !personMap[key].position) {
+      personMap[key].position = row.position;
+    }
+  });
+
+  allEngagers = Object.values(personMap).sort((a, b) => b.engagements.length - a.engagements.length);
+  const uniquePeople = allEngagers.length;
+  const repeatEngagers = allEngagers.filter(p => p.posts.size >= 2);
+  const uniquePosts = new Set(normalized.map(r => r.postUrl)).size;
+
+  document.getElementById('totalEngagements').textContent = normalized.length.toLocaleString();
+  document.getElementById('uniquePeople').textContent = uniquePeople.toLocaleString();
+  document.getElementById('uniquePeopleSub').textContent = 'across ' + uniquePosts + ' posts';
+  document.getElementById('repeatEngagers').textContent = repeatEngagers.length.toLocaleString();
+  document.getElementById('repeatEngagersSub').textContent =
+    ((repeatEngagers.length / uniquePeople * 100) || 0).toFixed(0) + '% of total';
+  document.getElementById('postsTracked').textContent = uniquePosts;
+
+  buildTypeChart(normalized);
+  buildCountryChart(allEngagers);
+  buildPostBarChart(normalized);
+  buildWarmthChart(allEngagers);
+  buildTop10(allEngagers);
+  buildIntentTable(normalized);
+  buildEngagerTable(allEngagers);
+  buildPostTable(normalized);
+  buildPostingTimeChart(normalized);
+  buildTopicChart(normalized);
+  buildTopicTable(normalized);
+  buildSentimentChart(normalized);
+
+  if (profileData.length > 0) {
+    buildProfileChart(profileData);
+  }
+}
+
+// ---- CHARTS ----
+
+function buildTypeChart(data) {
+  const counts = {};
+  data.forEach(r => {
+    const t = categorizeType(r.type);
+    counts[t] = (counts[t] || 0) + 1;
+  });
+  const labels = Object.keys(counts);
+  const values = Object.values(counts);
+
+  if (charts.type) charts.type.destroy();
+  charts.type = new Chart(document.getElementById('typeChart'), {
+    type: 'doughnut',
+    data: {
+      labels: labels,
+      datasets: [{
+        data: values,
+        backgroundColor: LF.chartColors.slice(0, labels.length),
+        borderWidth: 0,
+        hoverOffset: 6
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { position: 'bottom', labels: { color: LF.muted, padding: 16, font: { family: 'Lato' } } }
+      }
+    }
+  });
+}
+
+function buildCountryChart(people) {
+  const countries = {};
+  people.forEach(p => {
+    // Use Clay lookup first, fall back to position parsing
+    const lookup = countryLookup[p.url];
+    const country = (lookup && lookup.country) ? lookup.country : extractCountry(p.position);
+    countries[country] = (countries[country] || 0) + 1;
+  });
+  const sorted = Object.entries(countries)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10);
+
+  if (charts.country) charts.country.destroy();
+  charts.country = new Chart(document.getElementById('countryChart'), {
+    type: 'bar',
+    data: {
+      labels: sorted.map(s => s[0]),
+      datasets: [{
+        data: sorted.map(s => s[1]),
+        backgroundColor: LF.orange,
+        hoverBackgroundColor: LF.orangeLight,
+        borderRadius: 4
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: LF.chartTick, font: { family: 'Lato' } }, grid: { color: LF.chartGrid } },
+        y: { ticks: { color: LF.white, font: { family: 'Lato', weight: 700 } }, grid: { display: false } }
+      }
+    }
+  });
+}
+
+function buildPostBarChart(data) {
+  const posts = {};
+  data.forEach(r => {
+    const key = r.postUrl || r.postId;
+    if (!key) return;
+    if (!posts[key]) {
+      posts[key] = { id: r.postId, total: 0, reactions: 0, comments: 0, reposts: 0 };
+    }
+    if (r.type === 'COMMENT') posts[key].comments++;
+    else if (r.type === 'REPOST') posts[key].reposts++;
+    else posts[key].reactions++;
+    posts[key].total++;
+  });
+  const sorted = Object.values(posts).sort((a, b) => b.total - a.total).slice(0, 15);
+  const labels = sorted.map((p, i) => 'Post ' + (i + 1));
+
+  if (charts.postBar) charts.postBar.destroy();
+  charts.postBar = new Chart(document.getElementById('postChart'), {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: 'Reactions',
+          data: sorted.map(p => p.reactions),
+          backgroundColor: LF.purple,
+          borderRadius: 2
+        },
+        {
+          label: 'Comments',
+          data: sorted.map(p => p.comments),
+          backgroundColor: LF.orange,
+          borderRadius: 2
+        },
+        {
+          label: 'Reposts',
+          data: sorted.map(p => p.reposts),
+          backgroundColor: LF.green,
+          borderRadius: 2
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { position: 'bottom', labels: { color: LF.muted, font: { family: 'Lato' } } }
+      },
+      scales: {
+        x: { stacked: true, ticks: { color: LF.chartTick, font: { family: 'Lato' } }, grid: { display: false } },
+        y: { stacked: true, ticks: { color: LF.chartTick, font: { family: 'Lato' } }, grid: { color: LF.chartGrid } }
+      }
+    }
+  });
+}
+
+function buildWarmthChart(people) {
+  const hot = people.filter(p => p.posts.size >= 5).length;
+  const warm = people.filter(p => p.posts.size >= 3 && p.posts.size < 5).length;
+  const cool = people.filter(p => p.posts.size === 2).length;
+  const cold = people.filter(p => p.posts.size === 1).length;
+
+  if (charts.warmth) charts.warmth.destroy();
+  charts.warmth = new Chart(document.getElementById('warmthChart'), {
+    type: 'doughnut',
+    data: {
+      labels: [
+        'Hot (5+ posts)',
+        'Warm (3-4 posts)',
+        'Cool (2 posts)',
+        'New (1 post)'
+      ],
+      datasets: [{
+        data: [hot, warm, cool, cold],
+        backgroundColor: [
+          LF.orange,
+          LF.orangeLight,
+          LF.purpleMid,
+          'rgba(46,0,139,0.3)'
+        ],
+        borderWidth: 0,
+        hoverOffset: 6
+      }]
+    },
+    options: {
+      responsive: true,
+      cutout: '60%',
+      plugins: {
+        legend: { position: 'bottom', labels: { color: LF.muted, padding: 14, font: { family: 'Lato', size: 12 } } }
+      }
+    }
+  });
+}
+
+// ---- TABLES ----
+
+function buildTop10(people) {
+  const scored = people.map(p => {
+    let score = 0;
+    p.engagements.forEach(e => {
+      if (e.type === 'COMMENT') score += 3;
+      else if (e.type === 'REPOST') score += 5;
+      else score += 1;
+    });
+    score += (p.posts.size - 1) * 2;
+    return { ...p, score };
+  });
+
+  scored.sort((a, b) => b.score - a.score);
+  const top10 = scored.slice(0, 10);
+  const maxScore = top10[0] ? top10[0].score : 1;
+
+  const tbody = document.querySelector('#top10Table tbody');
+  tbody.innerHTML = '';
+  top10.forEach((p, i) => {
+    const warmth = p.posts.size >= 5 ? 'hot' : p.posts.size >= 3 ? 'warm' : 'cool';
+    const warmLabel = p.posts.size >= 5 ? 'Hot' : p.posts.size >= 3 ? 'Warm' : 'New';
+    const types = Array.from(p.types).map(t =>
+      '<span class="tag">' + categorizeType(t) + '</span>'
+    ).join(' ');
+    const nameLink = p.url
+      ? '<a href="' + p.url + '" target="_blank">' + p.name + '</a>'
+      : p.name;
+    tbody.innerHTML += '<tr>' +
+      '<td style="color:var(--orange);font-weight:900;">' + (i + 1) + '</td>' +
+      '<td>' + nameLink + '</td>' +
+      '<td style="color:var(--muted);font-size:12px;">' + truncate(p.position, 40) + '</td>' +
+      '<td>' + p.engagements.length + ' <span style="color:var(--muted);">(' + p.posts.size + ' posts)</span></td>' +
+      '<td>' + types + '</td>' +
+      '<td><div style="display:flex;align-items:center;gap:8px;">' +
+        '<span style="font-weight:700;">' + p.score + '</span>' +
+        '<div class="engagement-bar" style="width:80px;">' +
+          '<div class="fill" style="width:' + (p.score / maxScore * 100) + '%;"></div>' +
+        '</div></div></td>' +
+      '<td><span class="badge badge-' + warmth + '">' + warmLabel + '</span></td>' +
+      '</tr>';
+  });
+}
+
+function buildIntentTable(data) {
+  const comments = data.filter(r => r.type === 'COMMENT' && r.comment);
+  const scored = comments.map(c => {
+    const text = c.comment.toLowerCase();
+    let score = 0;
+    let signals = [];
+
+    // Strong buying intent
+    if (/\b(how much|pricing|price|cost|rates?)\b/.test(text)) { score += 10; signals.push('Pricing'); }
+    if (/\b(hire|hiring|looking for|need someone|need help)\b/.test(text)) { score += 10; signals.push('Hiring'); }
+    if (/\b(can you help|work with you|your services|let'?s talk|let'?s chat|let'?s connect)\b/.test(text)) { score += 9; signals.push('Wants to talk'); }
+    if (/\b(sign me up|i'?m in|count me in|interested)\b/.test(text)) { score += 9; signals.push('Interested'); }
+    if (/\b(dm me|send me|link\??|where can i|how do i|how can i)\b/.test(text)) { score += 8; signals.push('Asking how'); }
+
+    // Moderate intent
+    if (/\b(i need|we need|struggling with|pain point|challenge)\b/.test(text)) { score += 7; signals.push('Has need'); }
+    if (/\b(recommend|suggestion|advice|thoughts on)\b/.test(text)) { score += 5; signals.push('Seeking advice'); }
+    if (/\b(following|bookmarking|saving this|noting this)\b/.test(text)) { score += 4; signals.push('Saving'); }
+    if (/\b(love this|exactly|so true|spot on|nailed it|this is it)\b/.test(text)) { score += 3; signals.push('Strong agree'); }
+
+    // Question = engagement signal
+    if (/\?/.test(text) && text.length > 20) { score += 3; signals.push('Question'); }
+
+    // Long comments = higher engagement
+    if (text.length > 150) { score += 2; signals.push('Detailed'); }
+    if (text.length > 300) { score += 2; signals.push('Very detailed'); }
+
+    return { ...c, intentScore: score, signals };
+  });
+
+  // Filter to only intent signals, sort by score
+  const highIntent = scored.filter(c => c.intentScore > 0).sort((a, b) => b.intentScore - a.intentScore);
+
+  const tbody = document.querySelector('#intentTable tbody');
+  tbody.innerHTML = '';
+  highIntent.slice(0, 30).forEach(c => {
+    const badgeClass = c.intentScore >= 8 ? 'badge-hot' : c.intentScore >= 5 ? 'badge-warm' : 'badge-cool';
+    const badgeLabel = c.intentScore >= 8 ? 'High' : c.intentScore >= 5 ? 'Medium' : 'Low';
+    const signalTags = c.signals.map(s => '<span class="tag">' + s + '</span>').join(' ');
+    const nameLink = c.url
+      ? '<a href="' + c.url + '" target="_blank">' + c.name + '</a>'
+      : c.name;
+    const postLabel = postTitle(c.postUrl);
+    const postLink = c.postUrl
+      ? '<a href="' + c.postUrl + '" target="_blank">' + truncate(postLabel, 25) + '</a>'
+      : '';
+    tbody.innerHTML += '<tr>' +
+      '<td><span class="badge ' + badgeClass + '">' + badgeLabel + '</span> ' + signalTags + '</td>' +
+      '<td>' + nameLink + '</td>' +
+      '<td style="font-size:12px;color:var(--muted);max-width:300px;">' + truncate(c.comment, 120) + '</td>' +
+      '<td style="font-size:12px;">' + postLink + '</td>' +
+      '</tr>';
+  });
+
+  if (highIntent.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="4" style="color:var(--muted);text-align:center;padding:20px;">No high-intent comments detected yet</td></tr>';
+  }
+}
+
+function buildEngagerTable(people) {
+  const tbody = document.querySelector('#engagerTable tbody');
+  tbody.innerHTML = '';
+  people.slice(0, 100).forEach(p => {
+    const lastType = p.engagements[p.engagements.length - 1].type;
+    const nameLink = p.url
+      ? '<a href="' + p.url + '" target="_blank">' + p.name + '</a>'
+      : p.name;
+    tbody.innerHTML += '<tr>' +
+      '<td>' + nameLink + '</td>' +
+      '<td style="color:var(--muted);font-size:12px;">' + truncate(p.position, 30) + '</td>' +
+      '<td style="font-weight:700;">' + p.engagements.length + '</td>' +
+      '<td><span class="tag">' + categorizeType(lastType) + '</span></td>' +
+      '</tr>';
+  });
+}
+
+function filterEngagers() {
+  const q = document.getElementById('engagerSearch').value.toLowerCase();
+  const filtered = allEngagers.filter(p =>
+    p.name.toLowerCase().includes(q) ||
+    p.position.toLowerCase().includes(q)
+  );
+  const tbody = document.querySelector('#engagerTable tbody');
+  tbody.innerHTML = '';
+  filtered.slice(0, 100).forEach(p => {
+    const lastType = p.engagements[p.engagements.length - 1].type;
+    const nameLink = p.url
+      ? '<a href="' + p.url + '" target="_blank">' + p.name + '</a>'
+      : p.name;
+    tbody.innerHTML += '<tr>' +
+      '<td>' + nameLink + '</td>' +
+      '<td style="color:var(--muted);font-size:12px;">' + truncate(p.position, 30) + '</td>' +
+      '<td style="font-weight:700;">' + p.engagements.length + '</td>' +
+      '<td><span class="tag">' + categorizeType(lastType) + '</span></td>' +
+      '</tr>';
+  });
+}
+
+function buildPostTable(data) {
+  const posts = {};
+  data.forEach(r => {
+    const key = r.postUrl || r.postId;
+    if (!key) return;
+    if (!posts[key]) {
+      posts[key] = { url: r.postUrl, id: r.postId, reactions: 0, comments: 0, reposts: 0, total: 0 };
+    }
+    const t = r.type;
+    if (t === 'COMMENT') posts[key].comments++;
+    else if (t === 'REPOST') posts[key].reposts++;
+    else posts[key].reactions++;
+    posts[key].total++;
+  });
+
+  const sorted = Object.values(posts).sort((a, b) => b.total - a.total);
+  const tbody = document.querySelector('#postTable tbody');
+  tbody.innerHTML = '';
+  sorted.forEach(p => {
+    const title = postTitle(p.url);
+    const lookup = postLookup[p.url] || {};
+    const date = lookup.date || '';
+    const topic = lookup.topic || '';
+    const label = p.url
+      ? '<a href="' + p.url + '" target="_blank">' + title + '</a>'
+      : (p.id || 'Unknown');
+    tbody.innerHTML += '<tr>' +
+      '<td>' + label + '</td>' +
+      '<td style="font-size:12px;color:var(--muted);white-space:nowrap;">' + date + '</td>' +
+      '<td style="font-size:12px;">' + truncate(topic, 30) + '</td>' +
+      '<td><strong style="color:var(--orange);">' + p.total + '</strong></td>' +
+      '</tr>';
+  });
+}
+
+function buildProfileChart(data) {
+  document.getElementById('profileSection').style.display = 'block';
+  document.getElementById('followersCard').style.display = 'block';
+  document.getElementById('connectionsCard').style.display = 'block';
+
+  const sorted = data.sort((a, b) =>
+    (a['Date'] || '').localeCompare(b['Date'] || '')
+  );
+  const labels = sorted.map(r => formatDate(r['Date'] || ''));
+  const followers = sorted.map(r => parseInt(r['Followers']) || 0);
+  const connections = sorted.map(r => parseInt(r['Connections']) || 0);
+
+  const latestF = followers[followers.length - 1] || 0;
+  const prevF = followers.length > 1 ? followers[followers.length - 2] : latestF;
+  const latestC = connections[connections.length - 1] || 0;
+  const prevC = connections.length > 1 ? connections[connections.length - 2] : latestC;
+
+  document.getElementById('followerCount').textContent = latestF.toLocaleString();
+  const fDelta = latestF - prevF;
+  if (fDelta !== 0) {
+    document.getElementById('followerDelta').textContent = (fDelta > 0 ? '+' : '') + fDelta;
+    document.getElementById('followerDelta').className = 'delta ' + (fDelta > 0 ? 'up' : 'down');
+  }
+  document.getElementById('connectionCount').textContent = latestC.toLocaleString();
+  const cDelta = latestC - prevC;
+  if (cDelta !== 0) {
+    document.getElementById('connectionDelta').textContent = (cDelta > 0 ? '+' : '') + cDelta;
+    document.getElementById('connectionDelta').className = 'delta ' + (cDelta > 0 ? 'up' : 'down');
+  }
+
+  if (charts.profile) charts.profile.destroy();
+  charts.profile = new Chart(document.getElementById('profileChart'), {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: 'Followers',
+          data: followers,
+          borderColor: LF.orange,
+          backgroundColor: 'rgba(255,92,0,0.08)',
+          fill: true, tension: 0.3,
+          pointBackgroundColor: LF.orange
+        },
+        {
+          label: 'Connections',
+          data: connections,
+          borderColor: LF.purple,
+          backgroundColor: 'rgba(46,0,139,0.08)',
+          fill: true, tension: 0.3,
+          pointBackgroundColor: LF.purple
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { labels: { color: LF.muted, font: { family: 'Lato' } } } },
+      scales: {
+        x: { ticks: { color: LF.chartTick, font: { family: 'Lato' } }, grid: { color: LF.chartGrid } },
+        y: { ticks: { color: LF.chartTick, font: { family: 'Lato' } }, grid: { color: LF.chartGrid } }
+      }
+    }
+  });
+}
+
+// ---- CONTENT INTELLIGENCE ----
+
+function buildPostingTimeChart(data) {
+  // Group engagements by day-of-week and time slot using post_lookup
+  const dayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  const timeSlots = ['Morning (6-10)', 'Late Morning (10-12)', 'Afternoon (12-15)', 'Late Afternoon (15-18)', 'Evening (18+)'];
+
+  // Build a grid: day x time = avg engagement
+  const grid = {};
+  const postCounts = {};
+  dayOrder.forEach(d => {
+    grid[d] = {};
+    postCounts[d] = {};
+    timeSlots.forEach(t => { grid[d][t] = 0; postCounts[d][t] = 0; });
+  });
+
+  // Count engagements per post, map to day/time via postLookup
+  const postEngagements = {};
+  data.forEach(r => {
+    const key = r.postUrl;
+    if (!key) return;
+    postEngagements[key] = (postEngagements[key] || 0) + 1;
+  });
+
+  Object.entries(postEngagements).forEach(([url, count]) => {
+    const lookup = postLookup[url];
+    if (!lookup || !lookup.day || !lookup.time) return;
+    const day = lookup.day;
+    if (!grid[day]) return;
+    const hour = parseInt(lookup.time.split(':')[0]) || 12;
+    let slot;
+    if (hour < 10) slot = timeSlots[0];
+    else if (hour < 12) slot = timeSlots[1];
+    else if (hour < 15) slot = timeSlots[2];
+    else if (hour < 18) slot = timeSlots[3];
+    else slot = timeSlots[4];
+    grid[day][slot] += count;
+    postCounts[day][slot]++;
+  });
+
+  // Build bar chart: one dataset per time slot, grouped by day
+  const datasets = timeSlots.map((slot, i) => ({
+    label: slot,
+    data: dayOrder.map(d => postCounts[d][slot] > 0 ? Math.round(grid[d][slot] / postCounts[d][slot]) : 0),
+    backgroundColor: LF.chartColors[i % LF.chartColors.length],
+    borderRadius: 3
+  }));
+
+  if (charts.postingTime) charts.postingTime.destroy();
+  charts.postingTime = new Chart(document.getElementById('postingTimeChart'), {
+    type: 'bar',
+    data: { labels: dayOrder.map(d => d.substring(0, 3)), datasets: datasets },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { position: 'bottom', labels: { color: LF.muted, font: { family: 'Lato', size: 11 }, boxWidth: 12 } },
+        tooltip: {
+          callbacks: {
+            label: function(ctx) { return ctx.dataset.label + ': ' + ctx.raw + ' avg engagements'; }
+          }
+        }
+      },
+      scales: {
+        x: { stacked: false, ticks: { color: LF.chartTick, font: { family: 'Lato', weight: 700 } }, grid: { display: false } },
+        y: { ticks: { color: LF.chartTick, font: { family: 'Lato' } }, grid: { color: LF.chartGrid },
+          title: { display: true, text: 'Avg Engagements', color: LF.muted, font: { family: 'Lato', size: 11 } }
+        }
+      }
+    }
+  });
+}
+
+function buildTopicChart(data) {
+  // Group by Category from postLookup
+  const categoryEngagements = {};
+  const categoryCounts = {};
+
+  const postEngagements = {};
+  data.forEach(r => {
+    const key = r.postUrl;
+    if (!key) return;
+    postEngagements[key] = (postEngagements[key] || 0) + 1;
+  });
+
+  Object.entries(postEngagements).forEach(([url, count]) => {
+    const lookup = postLookup[url];
+    if (!lookup || !lookup.category) return;
+    const cat = lookup.category;
+    categoryEngagements[cat] = (categoryEngagements[cat] || 0) + count;
+    categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
+  });
+
+  const sorted = Object.entries(categoryEngagements)
+    .map(([cat, total]) => ({
+      category: cat,
+      total: total,
+      posts: categoryCounts[cat],
+      avg: Math.round(total / categoryCounts[cat])
+    }))
+    .sort((a, b) => b.avg - a.avg);
+
+  if (charts.topic) charts.topic.destroy();
+  charts.topic = new Chart(document.getElementById('topicChart'), {
+    type: 'bar',
+    data: {
+      labels: sorted.map(s => s.category),
+      datasets: [{
+        label: 'Avg per Post',
+        data: sorted.map(s => s.avg),
+        backgroundColor: LF.orange,
+        hoverBackgroundColor: LF.orangeLight,
+        borderRadius: 4
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      plugins: { legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: function(ctx) {
+              const item = sorted[ctx.dataIndex];
+              return item.avg + ' avg (' + item.posts + ' posts, ' + item.total + ' total)';
+            }
+          }
+        }
+      },
+      scales: {
+        x: { ticks: { color: LF.chartTick, font: { family: 'Lato' } }, grid: { color: LF.chartGrid },
+          title: { display: true, text: 'Avg Engagements per Post', color: LF.muted, font: { family: 'Lato', size: 11 } }
+        },
+        y: { ticks: { color: LF.white, font: { family: 'Lato', weight: 700, size: 11 } }, grid: { display: false } }
+      }
+    }
+  });
+}
+
+function buildTopicTable(data) {
+  const postEngagements = {};
+  data.forEach(r => {
+    const key = r.postUrl;
+    if (!key) return;
+    postEngagements[key] = (postEngagements[key] || 0) + 1;
+  });
+
+  const categories = {};
+  Object.entries(postEngagements).forEach(([url, count]) => {
+    const lookup = postLookup[url];
+    if (!lookup || !lookup.category) return;
+    const cat = lookup.category;
+    if (!categories[cat]) categories[cat] = { posts: 0, total: 0, topics: {}, tones: {} };
+    categories[cat].posts++;
+    categories[cat].total += count;
+    const topic = lookup.topic || '';
+    if (topic) categories[cat].topics[topic] = (categories[cat].topics[topic] || 0) + count;
+    const tone = lookup.tone || '';
+    if (tone) categories[cat].tones[tone] = (categories[cat].tones[tone] || 0) + 1;
+  });
+
+  const sorted = Object.entries(categories)
+    .map(([cat, info]) => {
+      const bestTopic = Object.entries(info.topics).sort((a, b) => b[1] - a[1])[0];
+      const topTone = Object.entries(info.tones).sort((a, b) => b[1] - a[1])[0];
+      return {
+        category: cat,
+        posts: info.posts,
+        avg: Math.round(info.total / info.posts),
+        bestTopic: bestTopic ? bestTopic[0] : '',
+        topTone: topTone ? topTone[0] : ''
+      };
+    })
+    .sort((a, b) => b.avg - a.avg);
+
+  const tbody = document.querySelector('#topicTable tbody');
+  tbody.innerHTML = '';
+  sorted.forEach(row => {
+    tbody.innerHTML += '<tr>' +
+      '<td style="font-weight:700;">' + row.category + '</td>' +
+      '<td>' + row.posts + '</td>' +
+      '<td><strong style="color:var(--orange);">' + row.avg + '</strong></td>' +
+      '<td style="font-size:12px;color:var(--muted);">' + truncate(row.bestTopic, 40) + '</td>' +
+      '<td><span class="tag">' + row.topTone + '</span></td>' +
+      '</tr>';
+  });
+}
+
+function buildSentimentChart(data) {
+  const comments = data.filter(r => r.type === 'COMMENT' && r.comment);
+  let positive = 0, neutral = 0, negative = 0;
+  const examples = { positive: [], negative: [] };
+
+  comments.forEach(c => {
+    const text = c.comment.toLowerCase();
+    const sent = scoreSentiment(text);
+    if (sent > 0) {
+      positive++;
+      if (examples.positive.length < 3) examples.positive.push(c);
+    } else if (sent < 0) {
+      negative++;
+      if (examples.negative.length < 3) examples.negative.push(c);
+    } else {
+      neutral++;
+    }
+  });
+
+  if (charts.sentiment) charts.sentiment.destroy();
+  charts.sentiment = new Chart(document.getElementById('sentimentChart'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Positive', 'Neutral', 'Negative'],
+      datasets: [{
+        data: [positive, neutral, negative],
+        backgroundColor: [LF.green, LF.muted, LF.red],
+        borderWidth: 0,
+        hoverOffset: 6
+      }]
+    },
+    options: {
+      responsive: true,
+      cutout: '60%',
+      plugins: {
+        legend: { position: 'bottom', labels: { color: LF.muted, padding: 14, font: { family: 'Lato', size: 12 } } }
+      }
+    }
+  });
+
+  // Breakdown stats
+  const total = comments.length || 1;
+  const el = document.getElementById('sentimentBreakdown');
+  el.innerHTML =
+    '<div style="display:flex;flex-direction:column;gap:12px;justify-content:center;height:100%;">' +
+    '<div style="font-size:13px;">' +
+      '<span style="color:var(--green);font-weight:900;font-size:24px;">' + Math.round(positive / total * 100) + '%</span>' +
+      ' <span style="color:var(--muted);">positive (' + positive + ')</span>' +
+    '</div>' +
+    '<div style="font-size:13px;">' +
+      '<span style="color:var(--muted);font-weight:900;font-size:24px;">' + Math.round(neutral / total * 100) + '%</span>' +
+      ' <span style="color:var(--muted);">neutral (' + neutral + ')</span>' +
+    '</div>' +
+    '<div style="font-size:13px;">' +
+      '<span style="color:var(--red);font-weight:900;font-size:24px;">' + Math.round(negative / total * 100) + '%</span>' +
+      ' <span style="color:var(--muted);">negative (' + negative + ')</span>' +
+    '</div>' +
+    '<div style="font-size:11px;color:var(--muted);margin-top:8px;">' + comments.length + ' total comments analyzed</div>' +
+    '</div>';
+}
+
+function scoreSentiment(text) {
+  let score = 0;
+  // Positive signals
+  const pos = [
+    /\b(love|great|amazing|awesome|excellent|fantastic|brilliant|wonderful|incredible|outstanding)\b/,
+    /\b(thank|thanks|appreciate|grateful)\b/,
+    /\b(agree|exactly|spot on|nailed it|so true|well said|perfectly|beautifully)\b/,
+    /\b(helpful|insightful|valuable|useful|powerful|inspiring|impressive)\b/,
+    /\b(congrats|congratulations|bravo|kudos|cheers|well done)\b/,
+    /\b(yes|absolutely|definitely|totally|100%)\b/,
+    /\b(genius|smart|clever|thoughtful|wise)\b/,
+    /\b(fire|gold|gem|treasure)\b/,
+    /[!]{1,}.*\b(love|great|amazing|awesome)\b/,
+    /\u{1F44F}|\u{1F525}|\u{2764}|\u{1F4AF}|\u{1F64F}|\u{1F389}/u
+  ];
+  // Negative signals
+  const neg = [
+    /\b(disagree|wrong|incorrect|misleading|bad take|terrible|awful|horrible)\b/,
+    /\b(hate|dislike|annoying|frustrating|disappointed|disappointing)\b/,
+    /\b(spam|clickbait|cringe|yikes|ugh)\b/,
+    /\b(waste|pointless|useless|nonsense|bs|bull)\b/,
+    /\b(but i think|i disagree|not really|not sure about|hard pass)\b/,
+    /\b(overrated|overhyped|mediocre)\b/
+  ];
+
+  pos.forEach(p => { if (p.test(text)) score++; });
+  neg.forEach(p => { if (p.test(text)) score--; });
+
+  return score;
+}
+
+// ---- HELPERS ----
+
+function isClayBootcamp(row) {
+  const name = (row.name || '').toLowerCase();
+  const pos = (row.position || '').toLowerCase();
+  // Boot emoji in name
+  if (/\u{1F97E}/u.test(row.name)) return true;
+  // Clay Bootcamp in position
+  if (pos.includes('clay bootcamp')) return true;
+  if (pos.includes('clay boot camp')) return true;
+  // GTME / GTM Engineer / Go-To-Market Engineer
+  if (/\bgtme\b/i.test(row.position)) return true;
+  if (/\bgtm engineer\b/i.test(row.position)) return true;
+  if (pos.includes('go-to-market engineer')) return true;
+  if (pos.includes('go to market engineer')) return true;
+  // Scaling / scale references
+  if (/\bscaling\b/i.test(row.position)) return true;
+  if (/\bat scale\b/i.test(row.position)) return true;
+  if (/\bscale\b/i.test(row.position)) return true;
+  // Revenue engineering
+  if (pos.includes('revenue engineer')) return true;
+  return false;
+}
+
+function categorizeType(type) {
+  if (!type) return 'Like';
+  const t = type.toUpperCase();
+  if (t === 'COMMENT') return 'Comment';
+  if (t === 'REPOST') return 'Repost';
+  if (t === 'LIKE') return 'Like';
+  if (t === 'EMPATHY') return 'Love';
+  if (t === 'INTEREST') return 'Insightful';
+  if (t === 'PRAISE') return 'Celebrate';
+  if (t === 'APPRECIATION') return 'Support';
+  if (t === 'ENTERTAINMENT') return 'Funny';
+  return type.charAt(0).toUpperCase() + type.slice(1).toLowerCase();
+}
+
+function extractCountry(position) {
+  if (!position) return 'Unknown';
+  const pos = position.toLowerCase();
+  const countryPatterns = [
+    [/\b(united states|usa|u\.s\.)\b/i, 'United States'],
+    [/\b(united kingdom|uk|u\.k\.)\b/i, 'United Kingdom'],
+    [/\b(india)\b/i, 'India'],
+    [/\b(canada)\b/i, 'Canada'],
+    [/\b(australia)\b/i, 'Australia'],
+    [/\b(germany|deutschland)\b/i, 'Germany'],
+    [/\b(france)\b/i, 'France'],
+    [/\b(netherlands|holland)\b/i, 'Netherlands'],
+    [/\b(brazil|brasil)\b/i, 'Brazil'],
+    [/\b(singapore)\b/i, 'Singapore'],
+    [/\b(israel)\b/i, 'Israel'],
+    [/\b(italy|italia)\b/i, 'Italy'],
+    [/\b(spain|espa[ñn]a)\b/i, 'Spain'],
+    [/\b(japan)\b/i, 'Japan'],
+    [/\b(nigeria)\b/i, 'Nigeria'],
+    [/\b(south africa)\b/i, 'South Africa'],
+    [/\b(sweden)\b/i, 'Sweden'],
+    [/\b(switzerland)\b/i, 'Switzerland'],
+    [/\b(ireland)\b/i, 'Ireland'],
+    [/\b(dubai|uae|emirates)\b/i, 'UAE'],
+    [/\b(kenya)\b/i, 'Kenya'],
+    [/\b(poland)\b/i, 'Poland'],
+    [/\b(portugal)\b/i, 'Portugal'],
+    [/\b(mexico|méxico)\b/i, 'Mexico'],
+    [/\b(belgium)\b/i, 'Belgium'],
+    [/\b(denmark)\b/i, 'Denmark'],
+    [/\b(norway)\b/i, 'Norway'],
+    [/\b(austria)\b/i, 'Austria'],
+    [/\b(new zealand)\b/i, 'New Zealand'],
+    [/\b(philippines)\b/i, 'Philippines'],
+    [/\b(pakistan)\b/i, 'Pakistan'],
+    [/\b(colombia)\b/i, 'Colombia'],
+    [/\b(argentina)\b/i, 'Argentina'],
+    [/\b(chile)\b/i, 'Chile'],
+    [/\b(romania)\b/i, 'Romania'],
+    [/\b(czech|czechia)\b/i, 'Czech Republic'],
+    [/\b(finland)\b/i, 'Finland'],
+    [/\b(ghana)\b/i, 'Ghana'],
+    [/\b(turkey|türkiye)\b/i, 'Turkey'],
+    [/\b(egypt)\b/i, 'Egypt'],
+    [/\b(indonesia)\b/i, 'Indonesia'],
+    [/\b(malaysia)\b/i, 'Malaysia'],
+    [/\b(thailand)\b/i, 'Thailand'],
+    [/\b(china)\b/i, 'China'],
+    [/\b(south korea|korea)\b/i, 'South Korea'],
+    [/\b(taiwan)\b/i, 'Taiwan'],
+    [/\b(vietnam)\b/i, 'Vietnam'],
+    [/\b(greece)\b/i, 'Greece'],
+    [/\b(hungary)\b/i, 'Hungary'],
+    [/\b(ukraine)\b/i, 'Ukraine'],
+    [/\b(croatia)\b/i, 'Croatia'],
+    [/\b(serbia)\b/i, 'Serbia'],
+  ];
+  const usCities = /\b(new york|san francisco|los angeles|chicago|boston|seattle|austin|denver|miami|atlanta|dallas|houston|washington|dc|d\.c\.|silicon valley|bay area|nyc|la|sf|california|texas|florida|georgia|virginia|massachusetts|illinois|colorado|ohio|arizona|portland|nashville|charlotte|minneapolis|philadelphia|phoenix|detroit|san diego|sacramento|tampa|orlando|raleigh|pittsburgh|cleveland|cincinnati|indianapolis|kansas city|salt lake|las vegas|san jose|san antonio|jacksonville|columbus|memphis|louisville|milwaukee|oklahoma|tucson|el paso|albuquerque|new jersey|north carolina|south carolina|pennsylvania|tennessee|michigan|maryland|connecticut|oregon|washington state|new hampshire|vermont|maine|rhode island|delaware|montana|idaho|wyoming|nebraska|iowa|arkansas|mississippi|alabama|louisiana|kentucky|missouri|wisconsin|minnesota|hawaii|alaska|utah|new mexico|n\.y\.|n\.j\.|conn|mass)\b/i;
+  const ukCities = /\b(london|manchester|birmingham|leeds|edinburgh|glasgow|bristol|liverpool|cardiff|belfast|sheffield|nottingham|newcastle|oxford|cambridge|brighton|bath|york|exeter|reading|southampton|aberdeen|dundee|swansea|coventry|leicester|norwich)\b/i;
+  const indiaCities = /\b(mumbai|bangalore|bengaluru|delhi|hyderabad|chennai|pune|kolkata|ahmedabad|jaipur|lucknow|noida|gurgaon|gurugram|chandigarh|indore|kochi|coimbatore|vadodara|nagpur|bhopal|visakhapatnam|thiruvananthapuram|surat|rajkot)\b/i;
+  const canadaCities = /\b(toronto|vancouver|montreal|ottawa|calgary|edmonton|winnipeg|quebec|halifax|victoria|kitchener|waterloo|hamilton|london ontario|saskatoon|regina)\b/i;
+  const australiaCities = /\b(sydney|melbourne|brisbane|perth|adelaide|canberra|gold coast|hobart|darwin|newcastle nsw|wollongong|geelong|cairns)\b/i;
+
+  for (const [pattern, country] of countryPatterns) {
+    if (pattern.test(pos)) return country;
+  }
+  if (usCities.test(pos)) return 'United States';
+  if (ukCities.test(pos)) return 'United Kingdom';
+  if (indiaCities.test(pos)) return 'India';
+  if (canadaCities.test(pos)) return 'Canada';
+  if (australiaCities.test(pos)) return 'Australia';
+  return 'Unknown';
+}
+
+function postTitle(url) {
+  if (!url) return 'Unknown';
+  // Extract slug from LinkedIn post URL
+  // Format: /posts/heather-melton_happy-bidsgiving-it-stretches-activity-123
+  const match = url.match(/posts\/[^_]+_(.+)-activity/);
+  if (match) {
+    return match[1]
+      .replace(/-/g, ' ')
+      .replace(/\b\w/g, c => c.toUpperCase())
+      .substring(0, 50);
+  }
+  return truncate(url, 40);
+}
+
+function truncate(str, len) {
+  if (!str) return '';
+  return str.length > len ? str.substring(0, len) + '...' : str;
+}
+
+function formatDate(d) {
+  if (!d) return '';
+  try {
+    const date = new Date(d);
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  } catch (e) { return d; }
+}
+
+// ---- SAMPLE DATA ----
+
+function generateSampleData() {
+  const names = [
+    ['Sarah Chen', 'VP Marketing at TechCorp | San Francisco', 'https://linkedin.com/in/sarahchen'],
+    ['James Wright', 'Founder & CEO at ScaleUp | London', 'https://linkedin.com/in/jameswright'],
+    ['Priya Sharma', 'Head of Growth at StartupX | Bangalore', 'https://linkedin.com/in/priyasharma'],
+    ['Marcus Johnson', 'Director of Sales | Chicago', 'https://linkedin.com/in/marcusjohnson'],
+    ['Emma Williams', 'Content Strategist at B2B Co | Toronto', 'https://linkedin.com/in/emmawilliams'],
+    ['Ahmed Hassan', 'CEO at DigitalFirst | Dubai', 'https://linkedin.com/in/ahmedhassan'],
+    ['Lisa Park', 'GTM Lead at SaaSify | Austin', 'https://linkedin.com/in/lisapark'],
+    ['Tom Mueller', 'Proposal Manager at GovTech | Berlin', 'https://linkedin.com/in/tommueller'],
+    ['Ana Rodriguez', 'Founder at ContentLab | Miami', 'https://linkedin.com/in/anarodriguez'],
+    ['David Kim', 'VP Sales at CloudScale | Seoul', 'https://linkedin.com/in/davidkim'],
+    ['Rachel Adams', 'Marketing Director at Fintech Ltd | New York', 'https://linkedin.com/in/racheladams'],
+    ['Pierre Dubois', 'Startup Advisor | Paris', 'https://linkedin.com/in/pierredubois'],
+    ['Olivia Taylor', 'Growth Marketing at RevOps | Sydney', 'https://linkedin.com/in/oliviataylor'],
+    ['Raj Patel', 'CTO at DataFlow | Mumbai', 'https://linkedin.com/in/rajpatel'],
+    ['Sophie Anderson', 'Business Development at Enterprise Co | Stockholm', 'https://linkedin.com/in/sophieanderson'],
+  ];
+  const types = ['LIKE', 'LIKE', 'LIKE', 'EMPATHY', 'INTEREST', 'PRAISE', 'COMMENT', 'REPOST'];
+  const posts = [];
+  for (let p = 1; p <= 12; p++) {
+    posts.push({
+      url: 'https://linkedin.com/feed/update/post' + p,
+      id: 'post-' + p,
+      date: new Date(2026, 0, p * 7)
+    });
+  }
+  const data = [];
+  posts.forEach(post => {
+    const engagerCount = 5 + Math.floor(Math.random() * 25);
+    for (let e = 0; e < engagerCount; e++) {
+      const person = names[Math.floor(Math.random() * names.length)];
+      const type = types[Math.floor(Math.random() * types.length)];
+      data.push({
+        'Date Scraped': post.date.toISOString(),
+        'Name': person[0],
+        'LinkedIn URL': person[2],
+        'Position': person[1],
+        'Engagement Type': type,
+        'Comment Text': type === 'COMMENT' ? 'Great insight!' : '',
+        'Post URL': post.url,
+        'Post ID': post.id,
+        'Engagement Key': person[2] + ' | ' + post.url
+      });
+    }
+  });
+  return data;
+}
+
+function generateSampleProfile() {
+  const data = [];
+  for (let w = 0; w < 12; w++) {
+    data.push({
+      'Date': new Date(2026, 0, 1 + w * 7).toISOString(),
+      'Followers': 2800 + w * 45 + Math.floor(Math.random() * 20),
+      'Connections': 1200 + w * 12 + Math.floor(Math.random() * 10),
+      'Name': 'Heather Melton'
+    });
+  }
+  return data;
+}
+
+// Auto-load on page open
+window.addEventListener('DOMContentLoaded', function() {
+  loadData();
+});
+</script>
+</body>
+</html>
