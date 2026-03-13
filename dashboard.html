@@ -1128,26 +1128,31 @@ function buildPostTable(data) {
 function buildProfileChart(data) {
   document.getElementById('profileSection').style.display = 'block';
   document.getElementById('followersCard').style.display = 'block';
-  document.getElementById('connectionsCard').style.display = 'block';
   document.getElementById('growthStats').style.display = 'flex';
 
-  const sorted = data.sort((a, b) =>
-    (a['Date'] || '').localeCompare(b['Date'] || '')
-  );
+  // Normalize dates and dedupe (keep latest entry per day)
+  var byDay = {};
+  data.forEach(function(r) {
+    var raw = r['Date'] || '';
+    var d = new Date(raw);
+    if (isNaN(d.getTime())) return;
+    var key = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+    byDay[key] = r; // later entries overwrite earlier ones (keeps latest per day)
+  });
+  var sorted = Object.keys(byDay).sort().map(function(k) { return byDay[k]; });
+
+  if (sorted.length === 0) return;
+
   const labels = sorted.map(r => formatDate(r['Date'] || ''));
   const followers = sorted.map(r => parseInt(r['Followers']) || 0);
-  const connections = sorted.map(r => parseInt(r['Connections']) || 0);
 
   // Starting point (first data point = baseline)
   const startF = followers[0] || 0;
-  const startC = connections[0] || 0;
   const startDateStr = sorted[0] ? sorted[0]['Date'] : '';
 
   // Current (latest data point)
   const latestF = followers[followers.length - 1] || 0;
   const prevF = followers.length > 1 ? followers[followers.length - 2] : latestF;
-  const latestC = connections[connections.length - 1] || 0;
-  const prevC = connections.length > 1 ? connections[connections.length - 2] : latestC;
   const currentDateStr = sorted[sorted.length - 1] ? sorted[sorted.length - 1]['Date'] : '';
 
   // Total growth since starting
@@ -1171,18 +1176,12 @@ function buildProfileChart(data) {
   document.getElementById('avgWeeklyGrowth').textContent = (avgWeeklyF >= 0 ? '+' : '') + avgWeeklyF;
   document.getElementById('avgWeeklyGrowthSub').textContent = 'followers/week over ' + weeksBetween + ' weeks';
 
-  // Top stats row — follower/connection cards
+  // Top stats row — follower card
   document.getElementById('followerCount').textContent = latestF.toLocaleString();
   const fDelta = latestF - prevF;
   if (fDelta !== 0) {
     document.getElementById('followerDelta').textContent = (fDelta > 0 ? '+' : '') + fDelta;
     document.getElementById('followerDelta').className = 'delta ' + (fDelta > 0 ? 'up' : 'down');
-  }
-  document.getElementById('connectionCount').textContent = latestC.toLocaleString();
-  const cDelta = latestC - prevC;
-  if (cDelta !== 0) {
-    document.getElementById('connectionDelta').textContent = (cDelta > 0 ? '+' : '') + cDelta;
-    document.getElementById('connectionDelta').className = 'delta ' + (cDelta > 0 ? 'up' : 'down');
   }
 
   // Update schedule indicator
