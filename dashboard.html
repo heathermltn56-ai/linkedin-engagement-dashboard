@@ -503,6 +503,38 @@
     </div>
   </div>
 
+  <!-- Topic Crossover Analysis -->
+  <div class="card" style="margin-bottom: 24px;" id="crossoverSection">
+    <h2>Topic Crossover Analysis</h2>
+    <p style="color: var(--muted); font-size: 12px; margin-bottom: 12px; font-weight: 300;">
+      Which topic combinations drive the most engagement — find your content sweet spots
+    </p>
+    <div class="grid-2" style="margin-bottom: 24px;">
+      <div>
+        <h3 style="font-size: 14px; margin-bottom: 12px; color: var(--orange);">Best Tag Combos</h3>
+        <table id="comboTable">
+          <thead>
+            <tr>
+              <th>Tag Combination</th>
+              <th>Posts</th>
+              <th>Avg Engagement</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div>
+        <h3 style="font-size: 14px; margin-bottom: 12px; color: var(--orange);">Single vs Multi-Topic</h3>
+        <canvas id="singleVsMultiChart"></canvas>
+      </div>
+    </div>
+    <h3 style="font-size: 14px; margin-bottom: 12px; color: var(--orange);">Tag Performance</h3>
+    <p style="color: var(--muted); font-size: 11px; margin-bottom: 12px; font-weight: 300;">
+      Each tag's avg engagement — solo vs when combined with other topics
+    </p>
+    <canvas id="tagPerformanceChart"></canvas>
+  </div>
+
   <div class="divider"></div>
   <div class="section-label">Growth</div>
 
@@ -747,6 +779,7 @@ function buildDashboard() {
   buildTopicChart(normalized);
   buildTopicTable(normalized);
   buildSentimentChart(normalized);
+  buildCrossoverAnalysis(normalized);
 
   if (profileData.length > 0) {
     buildProfileChart(profileData);
@@ -1521,6 +1554,218 @@ function scoreSentiment(text) {
   neg.forEach(p => { if (p.test(text)) score--; });
 
   return score;
+}
+
+// ---- TOPIC CROSSOVER ----
+
+const TAG_LOOKUP = {
+  'happy-bidsgiving': ['Bids', 'Humor'],
+  'i-caught-a-bidtopus': ['Bids', 'AI'],
+  'we-took-millie-to-the-beach': ['Personal'],
+  'should-i-be-using-claude-code': ['Claude Code', 'GTM'],
+  'all-of-our-recent-hires-at-clay-bootcamp': ['Founders', 'Community'],
+  'claudecode-ai': ['Claude Code', 'Confidence'],
+  'monday-youre-in-founder-mode': ['Founders', 'Content'],
+  'parksandrecreationmood': ['Humor', 'Content'],
+  'i-got-asked-for-the-best-cold-calling': ['GTM'],
+  'most-bid-teams-arent-struggling': ['Bids'],
+  'claude-code-4-gtmes': ['Claude Code'],
+  'recently-saw-a-post-about-someone-building': ['GTM', 'AI'],
+  'a-founder-i-spoke-to-spent-three-hours': ['Content', 'Confidence'],
+  'personal-i-noticed-youre-hiring-bdrs': ['GTM'],
+  'being-strategic-is-a-process-and-it-doesnt': ['Bids'],
+  'turns-out-everything-i-needed-to-know': ['Bids', 'GTM'],
+  'so-the-first-123-days-of-2026': ['Personal', 'Founders'],
+  'a-couple-of-months-ago-i-googled-what-is': ['Clay', 'Confidence'],
+  'my-husband-has-a-system-for-decisions': ['Confidence', 'Humor'],
+  'ok-quick-confession-a-little-while-ago': ['Bids', 'Founders'],
+  'hows-your-monday-going': ['Humor'],
+  'i-think-knowing-how-to-read-the-room': ['Content', 'Confidence'],
+  'linkedin-should-do-a-large-part': ['GTM', 'Content'],
+  'i-am-obsessed-claude-code-turned-me': ['Claude Code', 'Clay', 'Confidence'],
+  'six-months-ago-someone-said-lets-just': ['GTM', 'AI'],
+  'drifting-into-bad-decisions': ['Bids'],
+  'my-kitchen-tap-has-been-dripping': ['Confidence'],
+  'i-guess-i-didnt-want-to-track-it': ['Founders', 'Personal'],
+  'i-spent-last-week-building-an-automation': ['GTM', 'AI'],
+  'i-dumped-chatgpt-last-week': ['Claude Code', 'Humor'],
+  'every-sentence-gets-edited': ['Content'],
+  'personalised-landing-pages-with-claude-code': ['Clay', 'Claude Code'],
+  'your-expertise-feels-obvious': ['Confidence'],
+  'im-kind-of-sick-of-thought-leaders': ['Content', 'Humor'],
+  'three-research-tools-three-completely-different': ['AI', 'Clay'],
+  'we-want-to-build-a-community-like-clay': ['Clay', 'Community'],
+  'a-couple-of-months-ago-this-would-have-taken': ['Clay', 'Confidence'],
+  'ill-post-when-inspiration-strikes': ['Content'],
+  'disclaimer-i-dont-know-or-work-for-phillip': ['Clay', 'Claude Code'],
+  'ive-been-doing-podcasts-for-about-two-years': ['Confidence', 'Founders'],
+  'the-excel-world-championships-just-wrapped': ['Humor'],
+  'some-roles-come-with-a-job-description-bid': ['Bids'],
+  'the-inability-to-recognise-that-it-is-mid-december': ['Humor'],
+  'some-days-youre-the-hamster-in-sunglasses': ['Humor', 'Personal'],
+  'one-of-the-most-rewarding-parts-of-coaching': ['Clay', 'Community'],
+  'do-you-like-this-color-combination': ['Founders'],
+  'i-honestly-didnt-know-how-to-start-this': ['Bids', 'Founders', 'Personal']
+};
+
+function getPostTags(postUrl) {
+  if (!postUrl) return [];
+  var url = postUrl.toLowerCase();
+  for (var slug in TAG_LOOKUP) {
+    if (url.includes(slug)) return TAG_LOOKUP[slug];
+  }
+  return [];
+}
+
+function buildCrossoverAnalysis(data) {
+  // Group engagements by post URL
+  var postEngagements = {};
+  data.forEach(function(r) {
+    var url = r.postUrl || '';
+    if (!url) return;
+    postEngagements[url] = (postEngagements[url] || 0) + 1;
+  });
+
+  // Build tag combo stats
+  var comboStats = {};  // "Tag1 + Tag2" => { total, count }
+  var singleTotal = 0, singleCount = 0, multiTotal = 0, multiCount = 0;
+  var tagSolo = {};  // tag => { total, count } when it's the ONLY tag
+  var tagCombo = {}; // tag => { total, count } when combined with others
+  var tagAll = {};   // tag => { total, count } across all posts
+
+  Object.keys(postEngagements).forEach(function(url) {
+    var tags = getPostTags(url);
+    var eng = postEngagements[url];
+    if (tags.length === 0) return;
+
+    if (tags.length === 1) {
+      singleTotal += eng;
+      singleCount++;
+      var t = tags[0];
+      tagSolo[t] = tagSolo[t] || { total: 0, count: 0 };
+      tagSolo[t].total += eng;
+      tagSolo[t].count++;
+    } else {
+      multiTotal += eng;
+      multiCount++;
+      // Generate all pairs
+      for (var i = 0; i < tags.length; i++) {
+        for (var j = i + 1; j < tags.length; j++) {
+          var pair = [tags[i], tags[j]].sort().join(' + ');
+          comboStats[pair] = comboStats[pair] || { total: 0, count: 0 };
+          comboStats[pair].total += eng;
+          comboStats[pair].count++;
+        }
+        tagCombo[tags[i]] = tagCombo[tags[i]] || { total: 0, count: 0 };
+        tagCombo[tags[i]].total += eng;
+        tagCombo[tags[i]].count++;
+      }
+    }
+
+    // All tags regardless
+    tags.forEach(function(t) {
+      tagAll[t] = tagAll[t] || { total: 0, count: 0 };
+      tagAll[t].total += eng;
+      tagAll[t].count++;
+    });
+  });
+
+  // 1. Best Tag Combos table
+  var combos = Object.entries(comboStats)
+    .map(function(e) { return { combo: e[0], posts: e[1].count, avg: Math.round(e[1].total / e[1].count) }; })
+    .sort(function(a, b) { return b.avg - a.avg; });
+
+  var tbody = document.querySelector('#comboTable tbody');
+  tbody.innerHTML = '';
+  combos.forEach(function(c) {
+    var bar = '<div style="background:var(--orange);height:6px;border-radius:3px;width:' + Math.min(100, Math.round(c.avg / (combos[0].avg || 1) * 100)) + '%;margin-top:4px;"></div>';
+    tbody.innerHTML += '<tr>' +
+      '<td style="font-weight:700;font-size:12px;">' + c.combo + '</td>' +
+      '<td>' + c.posts + '</td>' +
+      '<td>' + c.avg + bar + '</td>' +
+      '</tr>';
+  });
+
+  // 2. Single vs Multi-Topic chart
+  var singleAvg = singleCount > 0 ? Math.round(singleTotal / singleCount) : 0;
+  var multiAvg = multiCount > 0 ? Math.round(multiTotal / multiCount) : 0;
+
+  if (charts.singleVsMulti) charts.singleVsMulti.destroy();
+  charts.singleVsMulti = new Chart(document.getElementById('singleVsMultiChart'), {
+    type: 'bar',
+    data: {
+      labels: ['Single Topic (' + singleCount + ' posts)', 'Multi-Topic (' + multiCount + ' posts)'],
+      datasets: [{
+        data: [singleAvg, multiAvg],
+        backgroundColor: [LF.muted, LF.orange],
+        borderRadius: 6,
+        barThickness: 50
+      }]
+    },
+    options: {
+      responsive: true,
+      indexAxis: 'y',
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: function(ctx) { return 'Avg engagement: ' + ctx.raw; }
+          }
+        }
+      },
+      scales: {
+        x: { ticks: { color: LF.chartTick, font: { family: 'Lato' } }, grid: { color: LF.chartGrid } },
+        y: { ticks: { color: LF.chartTick, font: { family: 'Lato', size: 12 } }, grid: { display: false } }
+      }
+    }
+  });
+
+  // 3. Tag Performance — solo vs combined
+  var allTags = Object.keys(tagAll).sort();
+  var soloAvgs = allTags.map(function(t) { return tagSolo[t] ? Math.round(tagSolo[t].total / tagSolo[t].count) : 0; });
+  var comboAvgs = allTags.map(function(t) { return tagCombo[t] ? Math.round(tagCombo[t].total / tagCombo[t].count) : 0; });
+
+  if (charts.tagPerf) charts.tagPerf.destroy();
+  charts.tagPerf = new Chart(document.getElementById('tagPerformanceChart'), {
+    type: 'bar',
+    data: {
+      labels: allTags,
+      datasets: [
+        {
+          label: 'Solo',
+          data: soloAvgs,
+          backgroundColor: LF.muted,
+          borderRadius: 4
+        },
+        {
+          label: 'Combined',
+          data: comboAvgs,
+          backgroundColor: LF.orange,
+          borderRadius: 4
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { labels: { color: LF.muted, font: { family: 'Lato' } } },
+        tooltip: {
+          callbacks: {
+            afterBody: function(items) {
+              var tag = items[0].label;
+              var solo = tagSolo[tag] ? tagSolo[tag].count + ' posts' : '0 posts';
+              var combo = tagCombo[tag] ? tagCombo[tag].count + ' posts' : '0 posts';
+              return 'Solo: ' + solo + ' | Combined: ' + combo;
+            }
+          }
+        }
+      },
+      scales: {
+        x: { ticks: { color: LF.chartTick, font: { family: 'Lato', size: 11 } }, grid: { display: false } },
+        y: { ticks: { color: LF.chartTick, font: { family: 'Lato' } }, grid: { color: LF.chartGrid } }
+      }
+    }
+  });
 }
 
 // ---- HELPERS ----
