@@ -1558,63 +1558,107 @@ function scoreSentiment(text) {
 
 // ---- TOPIC CROSSOVER ----
 
-const TAG_LOOKUP = {
-  'happy-bidsgiving': ['Bids', 'Humor'],
-  'i-caught-a-bidtopus': ['Bids', 'AI'],
-  'we-took-millie-to-the-beach': ['Personal'],
-  'should-i-be-using-claude-code': ['Claude Code', 'GTM'],
-  'all-of-our-recent-hires-at-clay-bootcamp': ['Founders', 'Community'],
-  'claudecode-ai': ['Claude Code', 'Confidence'],
-  'monday-youre-in-founder-mode': ['Founders', 'Content'],
-  'parksandrecreationmood': ['Humor', 'Content'],
-  'i-got-asked-for-the-best-cold-calling': ['GTM'],
-  'most-bid-teams-arent-struggling': ['Bids'],
-  'claude-code-4-gtmes': ['Claude Code'],
-  'recently-saw-a-post-about-someone-building': ['GTM', 'AI'],
-  'a-founder-i-spoke-to-spent-three-hours': ['Content', 'Confidence'],
-  'personal-i-noticed-youre-hiring-bdrs': ['GTM'],
-  'being-strategic-is-a-process-and-it-doesnt': ['Bids'],
-  'turns-out-everything-i-needed-to-know': ['Bids', 'GTM'],
-  'so-the-first-123-days-of-2026': ['Personal', 'Founders'],
-  'a-couple-of-months-ago-i-googled-what-is': ['Clay', 'Confidence'],
-  'my-husband-has-a-system-for-decisions': ['Confidence', 'Humor'],
-  'ok-quick-confession-a-little-while-ago': ['Bids', 'Founders'],
-  'hows-your-monday-going': ['Humor'],
-  'i-think-knowing-how-to-read-the-room': ['Content', 'Confidence'],
-  'linkedin-should-do-a-large-part': ['GTM', 'Content'],
-  'i-am-obsessed-claude-code-turned-me': ['Claude Code', 'Clay', 'Confidence'],
-  'six-months-ago-someone-said-lets-just': ['GTM', 'AI'],
-  'drifting-into-bad-decisions': ['Bids'],
-  'my-kitchen-tap-has-been-dripping': ['Confidence'],
-  'i-guess-i-didnt-want-to-track-it': ['Founders', 'Personal'],
-  'i-spent-last-week-building-an-automation': ['GTM', 'AI'],
-  'i-dumped-chatgpt-last-week': ['Claude Code', 'Humor'],
-  'every-sentence-gets-edited': ['Content'],
-  'personalised-landing-pages-with-claude-code': ['Clay', 'Claude Code'],
-  'your-expertise-feels-obvious': ['Confidence'],
-  'im-kind-of-sick-of-thought-leaders': ['Content', 'Humor'],
-  'three-research-tools-three-completely-different': ['AI', 'Clay'],
-  'we-want-to-build-a-community-like-clay': ['Clay', 'Community'],
-  'a-couple-of-months-ago-this-would-have-taken': ['Clay', 'Confidence'],
-  'ill-post-when-inspiration-strikes': ['Content'],
-  'disclaimer-i-dont-know-or-work-for-phillip': ['Clay', 'Claude Code'],
-  'ive-been-doing-podcasts-for-about-two-years': ['Confidence', 'Founders'],
-  'the-excel-world-championships-just-wrapped': ['Humor'],
-  'some-roles-come-with-a-job-description-bid': ['Bids'],
-  'the-inability-to-recognise-that-it-is-mid-december': ['Humor'],
-  'some-days-youre-the-hamster-in-sunglasses': ['Humor', 'Personal'],
-  'one-of-the-most-rewarding-parts-of-coaching': ['Clay', 'Community'],
-  'do-you-like-this-color-combination': ['Founders'],
-  'i-honestly-didnt-know-how-to-start-this': ['Bids', 'Founders', 'Personal']
-};
+var TAG_RULES = [
+  {
+    tag: 'Claude Code',
+    patterns: [/claude[\s-]?code/i, /claudecode/i, /chatgpt.*claude|claude.*chatgpt/i, /dumped.*chatgpt/i]
+  },
+  {
+    tag: 'Clay',
+    patterns: [/\bclay\b/i, /\bwebhook/i],
+    exclude: [/clay[\s-]?bootcamp/i, /clay bootcamp/i]
+  },
+  {
+    tag: 'Bids',
+    patterns: [/\bbid[s]?\b/i, /\bproposal[s]?\b/i, /\btender[s]?\b/i, /\bbidsgiving\b/i, /\bbidtopus\b/i, /\bbid[\s-]?manage/i]
+  },
+  {
+    tag: 'GTM',
+    patterns: [/\bgo[\s-]?to[\s-]?market\b/i, /\bgtm\b/i, /\bsales[\s-]?ops?\b/i, /\boutbound\b/i, /\bbdr[s]?\b/i, /\bcold[\s-]?call/i, /\bpipeline\b/i, /\brevenue[\s-]?ecosystem/i, /\bselling\b/i, /\bhiring[\s-]?bdr/i, /\bspreadsheet[\s-]?track/i]
+  },
+  {
+    tag: 'Founders',
+    patterns: [/\bfounder[s]?\b/i, /\bagency\b/i, /\bbuilding[\s-]?in[\s-]?public\b/i, /\bfirst[\s-]?official.*client/i, /\blogo.*color/i, /\bfirst[\s\-]*\d+[\s\-]*days\b/i, /\bcareer[\s-]?transition/i, /\bloro[\s-]?flow\b/i]
+  },
+  {
+    tag: 'Confidence',
+    patterns: [/\bconfidence\b/i, /\bmindset\b/i, /\bimposter/i, /\bsuperpower\b/i, /\bexpertise[\s-]?feels[\s-]?obvious/i, /\blevel[\s-]?up\b/i, /\bself[\s-]?promot/i, /\bread[\s-]?the[\s-]?room/i, /\bknowing[\s-]?when[\s-]?to[\s-]?change/i, /\bdecision[s]?\b/i, /\bobsessed\b/i, /\bwhere[\s-]?to[\s-]?start\b/i, /\bwould[\s-]?have[\s-]?taken[\s-]?me/i]
+  },
+  {
+    tag: 'Content',
+    patterns: [/\bposting[\s-]?strategy/i, /\bcontent[\s-]?creat/i, /\blinkedin[\s-]?post(?:ing)?\b/i, /\bvoice\b/i, /\bauthenti/i, /\bconsisten/i, /\bthought[\s-]?leader/i, /\binspiration[\s-]?strikes/i, /\bevery[\s-]?sentence[\s-]?gets[\s-]?edited/i, /\bselfie[\s-]?with[\s-]?a[\s-]?paragraph/i, /\bposting[\s-]?etiquette/i]
+  },
+  {
+    tag: 'Humor',
+    patterns: [/\bhumor\b/i, /\bhumour\b/i, /\bmood\b/i, /\bhamster\b/i, /\bfickle\b/i, /\bgiving\b.*\bstretches\b/i, /parks[\s-]?and[\s-]?recreation/i, /\bmonday.*going\b/i, /\bmid[\s-]?december\b/i, /\bexcel[\s-]?world[\s-]?championship/i, /\bsunglasses\b/i],
+    categoryMatch: [/humor/i, /culture/i]
+  },
+  {
+    tag: 'AI',
+    patterns: [/\bai\b/i, /\bautomation\b/i, /\bsub[\s-]?agent/i, /\bresearch[\s-]?tool/i, /\bworkflow\b/i, /\bdashboard\b/i],
+    exclude: [/claude[\s-]?code/i, /claudecode/i, /chatgpt/i, /\bclay\b/i]
+  },
+  {
+    tag: 'Personal',
+    patterns: [/\bmillie\b/i, /\bdog\b/i, /\bbeach\b/i, /\bhealth\b/i, /\bhusband\b/i, /\bkitchen[\s-]?tap/i, /\bpodcast/i, /\bchristina/i],
+    categoryMatch: [/founder[\s-]?life/i, /personal/i]
+  },
+  {
+    tag: 'Community',
+    patterns: [/\bcommunity\b/i, /\bcoaching\b/i, /\btestimonial/i, /\blearning[\s-]?alongside/i, /\bbuild[\s-]?a[\s-]?community/i]
+  }
+];
 
 function getPostTags(postUrl) {
   if (!postUrl) return [];
-  var url = postUrl.toLowerCase();
-  for (var slug in TAG_LOOKUP) {
-    if (url.includes(slug)) return TAG_LOOKUP[slug];
+  var lookup = postLookup[postUrl] || {};
+  var slug = postUrl.toLowerCase();
+  var topic = (lookup.topic || '').toLowerCase();
+  var category = (lookup.category || '').toLowerCase();
+  var content = (lookup.content || '').toLowerCase();
+  var searchText = slug + ' ' + topic + ' ' + content;
+  var tags = [];
+
+  TAG_RULES.forEach(function(rule) {
+    var matched = false;
+
+    // Check main patterns against slug + topic + content
+    for (var i = 0; i < rule.patterns.length; i++) {
+      if (rule.patterns[i].test(searchText)) {
+        matched = true;
+        break;
+      }
+    }
+
+    // Check category-specific matches
+    if (!matched && rule.categoryMatch) {
+      for (var j = 0; j < rule.categoryMatch.length; j++) {
+        if (rule.categoryMatch[j].test(category)) {
+          matched = true;
+          break;
+        }
+      }
+    }
+
+    // Check exclusions (for AI tag — don't double-tag if it's really Claude Code or Clay)
+    if (matched && rule.exclude) {
+      for (var k = 0; k < rule.exclude.length; k++) {
+        if (rule.exclude[k].test(searchText)) {
+          matched = false;
+          break;
+        }
+      }
+    }
+
+    if (matched) tags.push(rule.tag);
+  });
+
+  // Clay Bootcamp posts: tag as Clay (but exclude rule removes "clay bootcamp" — add it back)
+  if (/clay[\s-]?bootcamp/i.test(category) || /clay[\s-]?bootcamp/i.test(searchText)) {
+    if (tags.indexOf('Clay') === -1) tags.push('Clay');
   }
-  return [];
+
+  return tags;
 }
 
 function buildCrossoverAnalysis(data) {
