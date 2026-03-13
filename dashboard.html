@@ -334,13 +334,6 @@
         <span id="followerDelta" class="delta"></span>
       </div>
     </div>
-    <div class="stat-card" id="connectionsCard" style="display:none;">
-      <div class="label">Connections</div>
-      <div class="value profile-stat">
-        <span id="connectionCount">—</span>
-        <span id="connectionDelta" class="delta"></span>
-      </div>
-    </div>
   </div>
 
   <!-- Charts Row -->
@@ -544,7 +537,7 @@
 
   <!-- Profile Tracking Chart -->
   <div class="card" id="profileSection" style="margin-bottom: 24px; display: none;">
-    <h2>Follower & Connection Growth</h2>
+    <h2>Follower Growth</h2>
     <p style="color: var(--muted); font-size: 12px; margin-bottom: 12px; font-weight: 300;">
       Weekly tracking from starting point — hover for details
     </p>
@@ -557,7 +550,7 @@
   <div class="card" id="weeklyBreakdownSection" style="margin-bottom: 24px; display: none;">
     <h2>Week-over-Week Analysis</h2>
     <p style="color: var(--muted); font-size: 12px; margin-bottom: 12px; font-weight: 300;">
-      How followers and connections changed each week
+      How followers changed each week
     </p>
     <div style="max-height: 400px; overflow-y: auto;">
       <table id="weeklyTable">
@@ -565,8 +558,6 @@
           <tr>
             <th>Week</th>
             <th>Followers</th>
-            <th>Change</th>
-            <th>Connections</th>
             <th>Change</th>
           </tr>
         </thead>
@@ -1192,16 +1183,6 @@ function buildProfileChart(data) {
           pointRadius: 5,
           pointHoverRadius: 8
         },
-        {
-          label: 'Connections',
-          data: connections,
-          borderColor: LF.purple,
-          backgroundColor: 'rgba(46,0,139,0.08)',
-          fill: true, tension: 0.3,
-          pointBackgroundColor: LF.purple,
-          pointRadius: 5,
-          pointHoverRadius: 8
-        }
       ]
     },
     options: {
@@ -1215,10 +1196,7 @@ function buildProfileChart(data) {
               if (idx === 0) return 'Starting point';
               const prevF = followers[idx - 1];
               const currF = followers[idx];
-              const prevC = connections[idx - 1];
-              const currC = connections[idx];
-              return 'Followers: ' + (currF - prevF >= 0 ? '+' : '') + (currF - prevF) +
-                ' | Connections: ' + (currC - prevC >= 0 ? '+' : '') + (currC - prevC);
+              return 'Change: ' + (currF - prevF >= 0 ? '+' : '') + (currF - prevF);
             }
           }
         }
@@ -1241,18 +1219,13 @@ function buildProfileChart(data) {
       '<td style="white-space:nowrap;">' + formatDate(startDateStr) + ' <span class="tag">Start</span></td>' +
       '<td style="font-weight:700;">' + startF.toLocaleString() + '</td>' +
       '<td style="color:var(--muted);">—</td>' +
-      '<td style="font-weight:700;">' + startC.toLocaleString() + '</td>' +
-      '<td style="color:var(--muted);">—</td>' +
       '</tr>';
 
     // Subsequent rows with deltas
     for (let i = 1; i < sorted.length; i++) {
       const fChange = followers[i] - followers[i - 1];
-      const cChange = connections[i] - connections[i - 1];
       const fColor = fChange > 0 ? 'var(--green)' : fChange < 0 ? 'var(--red)' : 'var(--muted)';
-      const cColor = cChange > 0 ? 'var(--green)' : cChange < 0 ? 'var(--red)' : 'var(--muted)';
       const fSign = fChange > 0 ? '+' : '';
-      const cSign = cChange > 0 ? '+' : '';
       const isLatest = i === sorted.length - 1;
       const weekLabel = formatDate(sorted[i]['Date'] || '') + (isLatest ? ' <span class="tag" style="background:var(--orange);color:#fff;">Latest</span>' : '');
 
@@ -1260,19 +1233,14 @@ function buildProfileChart(data) {
         '<td style="white-space:nowrap;">' + weekLabel + '</td>' +
         '<td style="font-weight:700;">' + followers[i].toLocaleString() + '</td>' +
         '<td style="color:' + fColor + ';font-weight:700;">' + fSign + fChange.toLocaleString() + '</td>' +
-        '<td style="font-weight:700;">' + connections[i].toLocaleString() + '</td>' +
-        '<td style="color:' + cColor + ';font-weight:700;">' + cSign + cChange.toLocaleString() + '</td>' +
         '</tr>';
     }
 
     // Total row
-    const totalCGrowth = latestC - startC;
     tbody.innerHTML += '<tr style="border-top:2px solid var(--orange);">' +
       '<td style="font-weight:900;color:var(--orange);">Total Growth</td>' +
       '<td></td>' +
       '<td style="font-weight:900;color:var(--green);">+' + totalFGrowth.toLocaleString() + '</td>' +
-      '<td></td>' +
-      '<td style="font-weight:900;color:var(--green);">+' + totalCGrowth.toLocaleString() + '</td>' +
       '</tr>';
   }
 }
