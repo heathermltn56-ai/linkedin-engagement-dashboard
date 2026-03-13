@@ -513,10 +513,66 @@
   <div class="divider"></div>
   <div class="section-label">Growth</div>
 
-  <!-- Profile Tracking -->
+  <!-- Growth KPI Cards -->
+  <div class="stats-row" id="growthStats" style="display: none;">
+    <div class="stat-card">
+      <div class="label">Starting Followers</div>
+      <div class="value" id="startFollowers">—</div>
+      <div class="sub" id="startDate"></div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Current Followers</div>
+      <div class="value profile-stat">
+        <span id="currentFollowers">—</span>
+      </div>
+      <div class="sub" id="currentDate"></div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Total Growth</div>
+      <div class="value profile-stat">
+        <span id="totalGrowth">—</span>
+        <span id="totalGrowthPct" class="delta up"></span>
+      </div>
+      <div class="sub">since starting</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Avg Weekly Growth</div>
+      <div class="value" id="avgWeeklyGrowth">—</div>
+      <div class="sub" id="avgWeeklyGrowthSub">followers/week</div>
+    </div>
+  </div>
+
+  <!-- Profile Tracking Chart -->
   <div class="card" id="profileSection" style="margin-bottom: 24px; display: none;">
     <h2>Follower & Connection Growth</h2>
+    <p style="color: var(--muted); font-size: 12px; margin-bottom: 12px; font-weight: 300;">
+      Weekly tracking from starting point — hover for details
+    </p>
+    <p id="profileUpdateSchedule" style="color: var(--muted); font-size: 12px; margin-bottom: 12px; font-weight: 400; display: none;">
+    </p>
     <canvas id="profileChart"></canvas>
+  </div>
+
+  <!-- Weekly Breakdown Table -->
+  <div class="card" id="weeklyBreakdownSection" style="margin-bottom: 24px; display: none;">
+    <h2>Week-over-Week Analysis</h2>
+    <p style="color: var(--muted); font-size: 12px; margin-bottom: 12px; font-weight: 300;">
+      How followers and connections changed each week
+    </p>
+    <div style="max-height: 400px; overflow-y: auto;">
+      <table id="weeklyTable">
+        <thead>
+          <tr>
+            <th>Week</th>
+            <th>Followers</th>
+            <th>Change</th>
+            <th>Connections</th>
+            <th>Change</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
   </div>
 
 </div>
@@ -1049,6 +1105,7 @@ function buildProfileChart(data) {
   document.getElementById('profileSection').style.display = 'block';
   document.getElementById('followersCard').style.display = 'block';
   document.getElementById('connectionsCard').style.display = 'block';
+  document.getElementById('growthStats').style.display = 'flex';
 
   const sorted = data.sort((a, b) =>
     (a['Date'] || '').localeCompare(b['Date'] || '')
@@ -1057,11 +1114,40 @@ function buildProfileChart(data) {
   const followers = sorted.map(r => parseInt(r['Followers']) || 0);
   const connections = sorted.map(r => parseInt(r['Connections']) || 0);
 
+  // Starting point (first data point = baseline)
+  const startF = followers[0] || 0;
+  const startC = connections[0] || 0;
+  const startDateStr = sorted[0] ? sorted[0]['Date'] : '';
+
+  // Current (latest data point)
   const latestF = followers[followers.length - 1] || 0;
   const prevF = followers.length > 1 ? followers[followers.length - 2] : latestF;
   const latestC = connections[connections.length - 1] || 0;
   const prevC = connections.length > 1 ? connections[connections.length - 2] : latestC;
+  const currentDateStr = sorted[sorted.length - 1] ? sorted[sorted.length - 1]['Date'] : '';
 
+  // Total growth since starting
+  const totalFGrowth = latestF - startF;
+  const totalFPct = startF > 0 ? ((totalFGrowth / startF) * 100).toFixed(1) : 0;
+
+  // Average weekly growth
+  const startDate = new Date(startDateStr);
+  const currentDate = new Date(currentDateStr);
+  const weeksBetween = Math.max(1, Math.round((currentDate - startDate) / (7 * 24 * 60 * 60 * 1000)));
+  const avgWeeklyF = (totalFGrowth / weeksBetween).toFixed(1);
+
+  // Populate Growth KPI cards
+  document.getElementById('startFollowers').textContent = startF.toLocaleString();
+  document.getElementById('startDate').textContent = 'as of ' + formatDate(startDateStr);
+  document.getElementById('currentFollowers').textContent = latestF.toLocaleString();
+  document.getElementById('currentDate').textContent = 'as of ' + formatDate(currentDateStr);
+  document.getElementById('totalGrowth').textContent = (totalFGrowth >= 0 ? '+' : '') + totalFGrowth.toLocaleString();
+  document.getElementById('totalGrowthPct').textContent = (totalFGrowth >= 0 ? '+' : '') + totalFPct + '%';
+  document.getElementById('totalGrowthPct').className = 'delta ' + (totalFGrowth >= 0 ? 'up' : 'down');
+  document.getElementById('avgWeeklyGrowth').textContent = (avgWeeklyF >= 0 ? '+' : '') + avgWeeklyF;
+  document.getElementById('avgWeeklyGrowthSub').textContent = 'followers/week over ' + weeksBetween + ' weeks';
+
+  // Top stats row — follower/connection cards
   document.getElementById('followerCount').textContent = latestF.toLocaleString();
   const fDelta = latestF - prevF;
   if (fDelta !== 0) {
@@ -1075,6 +1161,21 @@ function buildProfileChart(data) {
     document.getElementById('connectionDelta').className = 'delta ' + (cDelta > 0 ? 'up' : 'down');
   }
 
+  // Update schedule indicator
+  var scheduleEl = document.getElementById('profileUpdateSchedule');
+  if (currentDateStr) {
+    var lastUpdate = new Date(currentDateStr);
+    var nextUpdate = new Date(lastUpdate);
+    // Next Monday after latest data point
+    nextUpdate.setDate(nextUpdate.getDate() + ((8 - nextUpdate.getDay()) % 7 || 7));
+    var fmtOpts = { month: 'short', day: 'numeric' };
+    var lastStr = lastUpdate.toLocaleDateString('en-US', fmtOpts);
+    var nextStr = nextUpdate.toLocaleDateString('en-US', fmtOpts);
+    scheduleEl.innerHTML = 'Last updated: <span style="color:var(--text);font-weight:700;">' + lastStr + '</span> · Next update: <span style="color:var(--orange);font-weight:700;">Mon ' + nextStr + '</span> <span style="opacity:0.6;">(weekly, Mondays at 9am)</span>';
+    scheduleEl.style.display = 'block';
+  }
+
+  // Line chart
   if (charts.profile) charts.profile.destroy();
   charts.profile = new Chart(document.getElementById('profileChart'), {
     type: 'line',
@@ -1087,7 +1188,9 @@ function buildProfileChart(data) {
           borderColor: LF.orange,
           backgroundColor: 'rgba(255,92,0,0.08)',
           fill: true, tension: 0.3,
-          pointBackgroundColor: LF.orange
+          pointBackgroundColor: LF.orange,
+          pointRadius: 5,
+          pointHoverRadius: 8
         },
         {
           label: 'Connections',
@@ -1095,19 +1198,83 @@ function buildProfileChart(data) {
           borderColor: LF.purple,
           backgroundColor: 'rgba(46,0,139,0.08)',
           fill: true, tension: 0.3,
-          pointBackgroundColor: LF.purple
+          pointBackgroundColor: LF.purple,
+          pointRadius: 5,
+          pointHoverRadius: 8
         }
       ]
     },
     options: {
       responsive: true,
-      plugins: { legend: { labels: { color: LF.muted, font: { family: 'Lato' } } } },
+      plugins: {
+        legend: { labels: { color: LF.muted, font: { family: 'Lato' } } },
+        tooltip: {
+          callbacks: {
+            afterBody: function(items) {
+              const idx = items[0].dataIndex;
+              if (idx === 0) return 'Starting point';
+              const prevF = followers[idx - 1];
+              const currF = followers[idx];
+              const prevC = connections[idx - 1];
+              const currC = connections[idx];
+              return 'Followers: ' + (currF - prevF >= 0 ? '+' : '') + (currF - prevF) +
+                ' | Connections: ' + (currC - prevC >= 0 ? '+' : '') + (currC - prevC);
+            }
+          }
+        }
+      },
       scales: {
         x: { ticks: { color: LF.chartTick, font: { family: 'Lato' } }, grid: { color: LF.chartGrid } },
         y: { ticks: { color: LF.chartTick, font: { family: 'Lato' } }, grid: { color: LF.chartGrid } }
       }
     }
   });
+
+  // Week-over-week breakdown table
+  if (sorted.length > 1) {
+    document.getElementById('weeklyBreakdownSection').style.display = 'block';
+    const tbody = document.querySelector('#weeklyTable tbody');
+    tbody.innerHTML = '';
+
+    // First row = starting point
+    tbody.innerHTML += '<tr>' +
+      '<td style="white-space:nowrap;">' + formatDate(startDateStr) + ' <span class="tag">Start</span></td>' +
+      '<td style="font-weight:700;">' + startF.toLocaleString() + '</td>' +
+      '<td style="color:var(--muted);">—</td>' +
+      '<td style="font-weight:700;">' + startC.toLocaleString() + '</td>' +
+      '<td style="color:var(--muted);">—</td>' +
+      '</tr>';
+
+    // Subsequent rows with deltas
+    for (let i = 1; i < sorted.length; i++) {
+      const fChange = followers[i] - followers[i - 1];
+      const cChange = connections[i] - connections[i - 1];
+      const fColor = fChange > 0 ? 'var(--green)' : fChange < 0 ? 'var(--red)' : 'var(--muted)';
+      const cColor = cChange > 0 ? 'var(--green)' : cChange < 0 ? 'var(--red)' : 'var(--muted)';
+      const fSign = fChange > 0 ? '+' : '';
+      const cSign = cChange > 0 ? '+' : '';
+      const isLatest = i === sorted.length - 1;
+      const weekLabel = formatDate(sorted[i]['Date'] || '') + (isLatest ? ' <span class="tag" style="background:var(--orange);color:#fff;">Latest</span>' : '');
+
+      tbody.innerHTML += '<tr>' +
+        '<td style="white-space:nowrap;">' + weekLabel + '</td>' +
+        '<td style="font-weight:700;">' + followers[i].toLocaleString() + '</td>' +
+        '<td style="color:' + fColor + ';font-weight:700;">' + fSign + fChange.toLocaleString() + '</td>' +
+        '<td style="font-weight:700;">' + connections[i].toLocaleString() + '</td>' +
+        '<td style="color:' + cColor + ';font-weight:700;">' + cSign + cChange.toLocaleString() + '</td>' +
+        '</tr>';
+    }
+
+    // Total row
+    const totalCGrowth = latestC - startC;
+    tbody.innerHTML += '<tr style="border-top:2px solid var(--orange);">' +
+      '<td style="font-weight:900;color:var(--orange);">Total Growth</td>' +
+      '<td></td>' +
+      '<td style="font-weight:900;color:var(--green);">+' + totalFGrowth.toLocaleString() + '</td>' +
+      '<td></td>' +
+      '<td style="font-weight:900;color:var(--green);">+' + totalCGrowth.toLocaleString() + '</td>' +
+      '</tr>';
+  }
 }
 
 // ---- CONTENT INTELLIGENCE ----
